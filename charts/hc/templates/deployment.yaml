@@ -27,7 +27,7 @@ spec:
             httpGet:
               path: /health
               port: http
-            periodSeconds: 20
+            periodSeconds: 30
             initialDelaySeconds: 20
           volumeMounts:
             - name: config-vl

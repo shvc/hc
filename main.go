@@ -31,32 +31,28 @@ var (
 
 func router() *mux.Router {
 	router := mux.NewRouter()
-	http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+	router.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("ok"))
 		slog.Info("success", "uri", r.RequestURI, "client", r.RemoteAddr, "code", http.StatusOK)
 	})
 
-	http.HandleFunc("/status", func(w http.ResponseWriter, r *http.Request) {
+	router.HandleFunc("/status", func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintln(w, "config :", configFile)
 		fmt.Fprintln(w, "version:", version)
+		fmt.Fprintln(w, "message:", msg)
 		fmt.Fprintln(w, "status :", "OK")
 		slog.Info("success", "uri", r.RequestURI, "client", r.RemoteAddr, "code", http.StatusOK)
 	})
 
-	http.HandleFunc("/msg", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprintln(w, msg)
-		slog.Info("success", "uri", r.RequestURI, "client", r.RemoteAddr, "code", http.StatusOK)
-	})
-
-	http.HandleFunc("/env", func(w http.ResponseWriter, r *http.Request) {
+	router.HandleFunc("/env", func(w http.ResponseWriter, r *http.Request) {
 		for _, e := range os.Environ() {
 			fmt.Fprintln(w, e)
 		}
 		slog.Info("success", "uri", r.RequestURI, "client", r.RemoteAddr, "code", http.StatusOK)
 	})
 
-	http.HandleFunc("/config", func(w http.ResponseWriter, r *http.Request) {
+	router.HandleFunc("/config", func(w http.ResponseWriter, r *http.Request) {
 		fd, err := os.Open(configFile)
 		if err != nil {
 			slog.Warn("failed", "uri", r.RequestURI, "client", r.RemoteAddr, "error", err.Error())
@@ -69,7 +65,7 @@ func router() *mux.Router {
 		io.Copy(w, fd)
 	})
 
-	router.HandleFunc("/upload/{name:.+}", func(w http.ResponseWriter, r *http.Request) {
+	router.HandleFunc("/file/{name:.+}", func(w http.ResponseWriter, r *http.Request) {
 		vars := mux.Vars(r)
 		filename := filepath.Join(dataDir, vars["name"])
 		fd, err := os.OpenFile(filename, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0666)
@@ -83,7 +79,7 @@ func router() *mux.Router {
 		slog.Info("success", "uri", r.RequestURI, "client", r.RemoteAddr, "code", http.StatusOK)
 	}).Methods(http.MethodPut)
 
-	router.HandleFunc("/download/{name:.+}", func(w http.ResponseWriter, r *http.Request) {
+	router.HandleFunc("/file/{name:.+}", func(w http.ResponseWriter, r *http.Request) {
 		vars := mux.Vars(r)
 		filename := filepath.Join(dataDir, vars["name"])
 		fd, err := os.Open(filename)
@@ -97,7 +93,21 @@ func router() *mux.Router {
 		slog.Info("success", "uri", r.RequestURI, "client", r.RemoteAddr, "code", http.StatusOK)
 	}).Methods(http.MethodGet)
 
-	http.HandleFunc("/pod", func(w http.ResponseWriter, r *http.Request) {
+	router.HandleFunc("/file", func(w http.ResponseWriter, r *http.Request) {
+		fd, err := os.ReadDir(dataDir)
+		if err != nil {
+			slog.Warn("failed", "uri", r.RequestURI, "client", r.RemoteAddr, "error", err.Error())
+			w.WriteHeader(http.StatusInternalServerError)
+			fmt.Fprintln(w, err)
+		}
+		for _, fe := range fd {
+			fmt.Fprintln(w, fe.Name())
+		}
+		slog.Info("success", "uri", r.RequestURI, "client", r.RemoteAddr, "code", http.StatusOK)
+
+	}).Methods(http.MethodGet)
+
+	router.HandleFunc("/pod", func(w http.ResponseWriter, r *http.Request) {
 		if clientset == nil {
 			slog.Info("k8s client not ready", "uri", r.RequestURI, "client", r.RemoteAddr, "code", http.StatusInternalServerError)
 			w.WriteHeader(http.StatusInternalServerError)
@@ -117,6 +127,8 @@ func router() *mux.Router {
 		}
 		slog.Info("success", "uri", r.RequestURI, "client", r.RemoteAddr, "code", http.StatusOK)
 	})
+
+	return router
 }
 
 func main() {
