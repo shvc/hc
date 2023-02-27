@@ -49,5 +49,5 @@ spec:
             name: {{ .Chart.Name }}-config-configmap
         - name: data
           persistentVolumeClaim:
-            claimName: {{ .Values.serviceName }}-pvc-data
+            claimName: {{ .Chart.Name }}-pvc-data
 

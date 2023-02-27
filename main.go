@@ -28,28 +28,28 @@ var (
 
 func router() {
 	http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
-		slog.Info("success", "uri", r.RequestURI, "client", r.RemoteAddr)
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("ok"))
+		slog.Info("success", "uri", r.RequestURI, "client", r.RemoteAddr, "code", http.StatusOK)
 	})
 
 	http.HandleFunc("/status", func(w http.ResponseWriter, r *http.Request) {
-		slog.Info("success", "uri", r.RequestURI, "client", r.RemoteAddr)
-		w.Write([]byte(fmt.Sprintf("config : %v", configFile)))
-		w.Write([]byte(fmt.Sprintf("version: %v", version)))
-		w.Write([]byte(fmt.Sprintf("status : %v", "Ok")))
+		fmt.Fprintln(w, "config :", configFile)
+		fmt.Fprintln(w, "version:", version)
+		fmt.Fprintln(w, "status :", "OK")
+		slog.Info("success", "uri", r.RequestURI, "client", r.RemoteAddr, "code", http.StatusOK)
 	})
 
 	http.HandleFunc("/msg", func(w http.ResponseWriter, r *http.Request) {
-		slog.Info("success", "uri", r.RequestURI, "client", r.RemoteAddr)
-		w.Write([]byte(msg))
+		fmt.Fprintln(w, msg)
+		slog.Info("success", "uri", r.RequestURI, "client", r.RemoteAddr, "code", http.StatusOK)
 	})
 
 	http.HandleFunc("/env", func(w http.ResponseWriter, r *http.Request) {
-		slog.Info("success", "uri", r.RequestURI, "client", r.RemoteAddr)
-		for _, es := range os.Environ() {
-			w.Write([]byte(es))
+		for _, e := range os.Environ() {
+			fmt.Fprintln(w, e)
 		}
+		slog.Info("success", "uri", r.RequestURI, "client", r.RemoteAddr, "code", http.StatusOK)
 	})
 
 	http.HandleFunc("/config", func(w http.ResponseWriter, r *http.Request) {
@@ -57,29 +57,33 @@ func router() {
 		if err != nil {
 			slog.Info("failed", "uri", r.RequestURI, "client", r.RemoteAddr, "error", err.Error())
 			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte(err.Error()))
+			fmt.Fprintln(w, err)
 			return
 		}
 		defer fd.Close()
-		slog.Info("success", "uri", r.RequestURI, "client", r.RemoteAddr)
+		slog.Info("success", "uri", r.RequestURI, "client", r.RemoteAddr, "code", http.StatusOK)
 		io.Copy(w, fd)
 	})
 
 	http.HandleFunc("/pod", func(w http.ResponseWriter, r *http.Request) {
 		if clientset == nil {
-			slog.Info("k8s client not ready", "uri", r.RequestURI, "client", r.RemoteAddr)
+			slog.Info("k8s client not ready", "uri", r.RequestURI, "client", r.RemoteAddr, "code", http.StatusInternalServerError)
+			w.WriteHeader(http.StatusInternalServerError)
+			fmt.Fprintln(w, "k8s client not ready")
 			return
 		}
 
 		pods, err := clientset.CoreV1().Pods("default").List(r.Context(), metav1.ListOptions{})
 		if err != nil {
-			slog.Info("k8s client not ready", "uri", r.RequestURI, "client", r.RemoteAddr)
+			slog.Info("k8s client error", "uri", r.RequestURI, "client", r.RemoteAddr, "error", err, "code", http.StatusInternalServerError)
+			w.WriteHeader(http.StatusInternalServerError)
+			fmt.Fprintln(w, "k8s client error", err)
 			return
 		}
 		for _, pod := range pods.Items {
-			w.Write([]byte("pod: " + pod.Name + "\n"))
+			fmt.Fprintln(w, "pod:", pod.Name)
 		}
-
+		slog.Info("success", "uri", r.RequestURI, "client", r.RemoteAddr, "code", http.StatusOK)
 	})
 }
 
@@ -97,13 +101,13 @@ func main() {
 	}
 
 	config, err := rest.InClusterConfig()
-	if err == nil {
+	if err != nil {
+		slog.Warn("k8s inCluster init failed", "error", err)
+	} else {
 		clientset, err = kubernetes.NewForConfig(config)
 		if err != nil {
-			slog.Warn("k8s client configuration failed", "error", err.Error())
+			slog.Warn("k8s client configuration failed", "error", err)
 		}
-	} else {
-		slog.Info("k8s client not set")
 	}
 
 	router()

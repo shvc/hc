@@ -4,4 +4,4 @@ metadata:
   name: {{ .Chart.Name }}-config-configmap
 data:
   config.json: | 
-  {{ .Values.config | toJson | indent4 }}
+  {{ .Values.config | toJson | nindent 4 }}

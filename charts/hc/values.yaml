@@ -13,7 +13,7 @@ nameOverride: ""
 fullnameOverride: ""
 
 serviceAccount:
-  create: false
+  create: true
   annotations: {}
   name: ""
 
