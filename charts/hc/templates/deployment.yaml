@@ -5,9 +5,7 @@ metadata:
   labels:
     {{- include "hc.labels" . | nindent 4 }}
 spec:
-  {{- if not .Values.autoscaling.enabled }}
   replicas: {{ .Values.replicaCount }}
-  {{- end }}
   selector:
     matchLabels:
       {{- include "hc.selectorLabels" . | nindent 6 }}
@@ -29,17 +27,13 @@ spec:
             httpGet:
               path: /health
               port: http
-            periodSeconds: 10
-            initialDelaySeconds: 10
-          readinessProbe:
-            httpGet:
-              path: /status
-              port: http
-            periodSeconds: 10
-            initialDelaySeconds: 10
+            periodSeconds: 20
+            initialDelaySeconds: 20
           volumeMounts:
             - name: config-vl
               mountPath: /config
+            - name: data
+              mountPath: /data
           env:
             - name: CONFIG
               value: "/config/config.json"
@@ -53,4 +47,7 @@ spec:
         - name: config-vl
           configMap:
             name: {{ .Chart.Name }}-config-configmap
+        - name: data
+          persistentVolumeClaim:
+            claimName: {{ .Values.serviceName }}-pvc-data
 
