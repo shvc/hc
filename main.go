@@ -31,15 +31,15 @@ var (
 	clientset  *kubernetes.Clientset
 )
 
-func router() *mux.Router {
-	router := mux.NewRouter()
-	router.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+func router() (mrouter *mux.Router) {
+	mrouter = mux.NewRouter()
+	mrouter.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("ok"))
 		slog.Info("success", "uri", r.RequestURI, "client", r.RemoteAddr, "code", http.StatusOK)
 	})
 
-	router.HandleFunc("/status", func(w http.ResponseWriter, r *http.Request) {
+	mrouter.HandleFunc("/status", func(w http.ResponseWriter, r *http.Request) {
 		if hn, err := os.Hostname(); err == nil {
 			fmt.Fprintln(w, "hostname:", hn)
 		}
@@ -50,14 +50,14 @@ func router() *mux.Router {
 		slog.Info("success", "uri", r.RequestURI, "client", r.RemoteAddr, "code", http.StatusOK)
 	})
 
-	router.HandleFunc("/env", func(w http.ResponseWriter, r *http.Request) {
+	mrouter.HandleFunc("/env", func(w http.ResponseWriter, r *http.Request) {
 		for _, e := range os.Environ() {
 			fmt.Fprintln(w, e)
 		}
 		slog.Info("success", "uri", r.RequestURI, "client", r.RemoteAddr, "code", http.StatusOK)
 	})
 
-	router.HandleFunc("/config", func(w http.ResponseWriter, r *http.Request) {
+	mrouter.HandleFunc("/config", func(w http.ResponseWriter, r *http.Request) {
 		fd, err := os.Open(configFile)
 		if err != nil {
 			slog.Warn("failed", "uri", r.RequestURI, "client", r.RemoteAddr, "error", err.Error())
@@ -70,7 +70,7 @@ func router() *mux.Router {
 		io.Copy(w, fd)
 	})
 
-	router.HandleFunc("/file/{name:.+}", func(w http.ResponseWriter, r *http.Request) {
+	mrouter.HandleFunc("/file/{name:.+}", func(w http.ResponseWriter, r *http.Request) {
 		vars := mux.Vars(r)
 		filename := filepath.Join(dataDir, vars["name"])
 		fd, err := os.OpenFile(filename, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0666)
@@ -84,7 +84,7 @@ func router() *mux.Router {
 		slog.Info("success", "uri", r.RequestURI, "client", r.RemoteAddr, "code", http.StatusOK)
 	}).Methods(http.MethodPut)
 
-	router.HandleFunc("/file/{name:.+}", func(w http.ResponseWriter, r *http.Request) {
+	mrouter.HandleFunc("/file/{name:.+}", func(w http.ResponseWriter, r *http.Request) {
 		vars := mux.Vars(r)
 		filename := filepath.Join(dataDir, vars["name"])
 		fd, err := os.Open(filename)
@@ -98,7 +98,7 @@ func router() *mux.Router {
 		slog.Info("success", "uri", r.RequestURI, "client", r.RemoteAddr, "code", http.StatusOK)
 	}).Methods(http.MethodGet)
 
-	router.HandleFunc("/file", func(w http.ResponseWriter, r *http.Request) {
+	mrouter.HandleFunc("/file", func(w http.ResponseWriter, r *http.Request) {
 		fd, err := os.ReadDir(dataDir)
 		if err != nil {
 			slog.Warn("failed", "uri", r.RequestURI, "client", r.RemoteAddr, "error", err.Error())
@@ -112,14 +112,11 @@ func router() *mux.Router {
 
 	}).Methods(http.MethodGet)
 
-	router.HandleFunc("/pod", func(w http.ResponseWriter, r *http.Request) {
-		if clientset == nil {
-			slog.Warn("k8s client not ready", "uri", r.RequestURI, "client", r.RemoteAddr, "code", http.StatusInternalServerError)
-			w.WriteHeader(http.StatusInternalServerError)
-			fmt.Fprintln(w, "k8s client not ready")
-			return
-		}
+	if clientset == nil {
+		return
+	}
 
+	mrouter.HandleFunc("/pod", func(w http.ResponseWriter, r *http.Request) {
 		pods, err := clientset.CoreV1().Pods("default").List(r.Context(), metav1.ListOptions{})
 		if err != nil {
 			slog.Warn("k8s client error", "uri", r.RequestURI, "client", r.RemoteAddr, "error", err, "code", http.StatusInternalServerError)
@@ -133,14 +130,7 @@ func router() *mux.Router {
 		slog.Info("success", "uri", r.RequestURI, "client", r.RemoteAddr, "code", http.StatusOK)
 	})
 
-	router.HandleFunc("/deployment", func(w http.ResponseWriter, r *http.Request) {
-		if clientset == nil {
-			slog.Warn("k8s client not ready", "uri", r.RequestURI, "client", r.RemoteAddr, "code", http.StatusInternalServerError)
-			w.WriteHeader(http.StatusInternalServerError)
-			fmt.Fprintln(w, "k8s client not ready")
-			return
-		}
-
+	mrouter.HandleFunc("/deployment", func(w http.ResponseWriter, r *http.Request) {
 		dps, err := clientset.AppsV1().Deployments("default").List(r.Context(), metav1.ListOptions{})
 		if err != nil {
 			slog.Warn("k8s client error", "uri", r.RequestURI, "client", r.RemoteAddr, "error", err, "code", http.StatusInternalServerError)
@@ -154,16 +144,9 @@ func router() *mux.Router {
 		slog.Info("success", "uri", r.RequestURI, "client", r.RemoteAddr, "code", http.StatusOK)
 	})
 
-	router.HandleFunc("/deployment/restart/{name:.+}", func(w http.ResponseWriter, r *http.Request) {
+	mrouter.HandleFunc("/deployment/restart/{name:.+}", func(w http.ResponseWriter, r *http.Request) {
 		vars := mux.Vars(r)
-		deploymantName := filepath.Join(dataDir, vars["name"])
-		if clientset == nil {
-			slog.Warn("k8s client not ready", "uri", r.RequestURI, "client", r.RemoteAddr, "code", http.StatusInternalServerError)
-			w.WriteHeader(http.StatusInternalServerError)
-			fmt.Fprintln(w, "k8s client not ready")
-			return
-		}
-
+		deploymantName := vars["name"]
 		// kubectl rollout restart deployment my-deploymnet
 		deploymentsClient := clientset.AppsV1().Deployments("default")
 		data := fmt.Sprintf(`{"spec": {"template": {"metadata": {"annotations": {"kubectl.kubernetes.io/restartedAt": "%s"}}}}}`, time.Now().Format("20060102150405"))
@@ -180,7 +163,7 @@ func router() *mux.Router {
 		slog.Info("success", "uri", r.RequestURI, "client", r.RemoteAddr, "code", http.StatusOK, "name", deploymantName)
 	})
 
-	return router
+	return
 }
 
 func main() {
@@ -199,15 +182,16 @@ func main() {
 
 	config, err := rest.InClusterConfig()
 	if err != nil {
-		slog.Warn("k8s inCluster init failed", "error", err)
+		slog.Info("starting without k8s", "addr", addr, "version", version, "error", err)
 	} else {
 		clientset, err = kubernetes.NewForConfig(config)
 		if err != nil {
-			slog.Warn("k8s client configuration failed", "error", err)
+			slog.Info("starting without k8s", "addr", addr, "version", version, "error", err)
+		} else {
+			slog.Info("starting with k8s", "addr", addr, "version", version)
 		}
 	}
 
-	slog.Info("starting", "addr", addr, "version", version)
 	if err := http.ListenAndServe(addr, router()); err != nil {
 		log.Println("listen and serve error", err)
 	}
