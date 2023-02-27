@@ -4,7 +4,9 @@ go 1.20
 
 require (
 	github.com/gobike/envflag v0.0.0-20160830095501-ae3268980a29
+	github.com/gorilla/mux v1.8.0
 	golang.org/x/exp v0.0.0-20230223210539-50820d90acfd
+	k8s.io/apimachinery v0.26.1
 	k8s.io/client-go v0.26.1
 )
 
@@ -38,7 +40,6 @@ require (
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	k8s.io/api v0.26.1 // indirect
-	k8s.io/apimachinery v0.26.1 // indirect
 	k8s.io/klog/v2 v2.80.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20221012153701-172d655c2280 // indirect
 	k8s.io/utils v0.0.0-20221107191617-1a15be271d1d // indirect
