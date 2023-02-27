@@ -9,13 +9,10 @@ image:
   pullPolicy: IfNotPresent
   tag: ""
 
-nameOverride: ""
-fullnameOverride: ""
-
 serviceAccount:
   create: true
   annotations: {}
-  name: ""
+  name: "hcsa"
 
 pvPath: "/var/tmp/pv"
 

@@ -8,8 +8,10 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	k8stypes "k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
@@ -38,6 +40,9 @@ func router() *mux.Router {
 	})
 
 	router.HandleFunc("/status", func(w http.ResponseWriter, r *http.Request) {
+		if hn, err := os.Hostname(); err == nil {
+			fmt.Fprintln(w, "hostname:", hn)
+		}
 		fmt.Fprintln(w, "config :", configFile)
 		fmt.Fprintln(w, "version:", version)
 		fmt.Fprintln(w, "message:", msg)
@@ -109,7 +114,7 @@ func router() *mux.Router {
 
 	router.HandleFunc("/pod", func(w http.ResponseWriter, r *http.Request) {
 		if clientset == nil {
-			slog.Info("k8s client not ready", "uri", r.RequestURI, "client", r.RemoteAddr, "code", http.StatusInternalServerError)
+			slog.Warn("k8s client not ready", "uri", r.RequestURI, "client", r.RemoteAddr, "code", http.StatusInternalServerError)
 			w.WriteHeader(http.StatusInternalServerError)
 			fmt.Fprintln(w, "k8s client not ready")
 			return
@@ -117,7 +122,7 @@ func router() *mux.Router {
 
 		pods, err := clientset.CoreV1().Pods("default").List(r.Context(), metav1.ListOptions{})
 		if err != nil {
-			slog.Info("k8s client error", "uri", r.RequestURI, "client", r.RemoteAddr, "error", err, "code", http.StatusInternalServerError)
+			slog.Warn("k8s client error", "uri", r.RequestURI, "client", r.RemoteAddr, "error", err, "code", http.StatusInternalServerError)
 			w.WriteHeader(http.StatusInternalServerError)
 			fmt.Fprintln(w, "k8s client error", err)
 			return
@@ -126,6 +131,53 @@ func router() *mux.Router {
 			fmt.Fprintln(w, "pod:", pod.Name)
 		}
 		slog.Info("success", "uri", r.RequestURI, "client", r.RemoteAddr, "code", http.StatusOK)
+	})
+
+	router.HandleFunc("/deployment", func(w http.ResponseWriter, r *http.Request) {
+		if clientset == nil {
+			slog.Warn("k8s client not ready", "uri", r.RequestURI, "client", r.RemoteAddr, "code", http.StatusInternalServerError)
+			w.WriteHeader(http.StatusInternalServerError)
+			fmt.Fprintln(w, "k8s client not ready")
+			return
+		}
+
+		dps, err := clientset.AppsV1().Deployments("default").List(r.Context(), metav1.ListOptions{})
+		if err != nil {
+			slog.Warn("k8s client error", "uri", r.RequestURI, "client", r.RemoteAddr, "error", err, "code", http.StatusInternalServerError)
+			w.WriteHeader(http.StatusInternalServerError)
+			fmt.Fprintln(w, "k8s client error", err)
+			return
+		}
+		for _, dp := range dps.Items {
+			fmt.Fprintln(w, "deployment:", dp.Name)
+		}
+		slog.Info("success", "uri", r.RequestURI, "client", r.RemoteAddr, "code", http.StatusOK)
+	})
+
+	router.HandleFunc("/deployment/restart/{name:.+}", func(w http.ResponseWriter, r *http.Request) {
+		vars := mux.Vars(r)
+		deploymantName := filepath.Join(dataDir, vars["name"])
+		if clientset == nil {
+			slog.Warn("k8s client not ready", "uri", r.RequestURI, "client", r.RemoteAddr, "code", http.StatusInternalServerError)
+			w.WriteHeader(http.StatusInternalServerError)
+			fmt.Fprintln(w, "k8s client not ready")
+			return
+		}
+
+		// kubectl rollout restart deployment my-deploymnet
+		deploymentsClient := clientset.AppsV1().Deployments("default")
+		data := fmt.Sprintf(`{"spec": {"template": {"metadata": {"annotations": {"kubectl.kubernetes.io/restartedAt": "%s"}}}}}`, time.Now().Format("20060102150405"))
+		dpm, err := deploymentsClient.Patch(r.Context(), deploymantName, k8stypes.StrategicMergePatchType, []byte(data), metav1.PatchOptions{})
+
+		if err != nil {
+			slog.Warn("k8s client error", "uri", r.RequestURI, "client", r.RemoteAddr, "error", err, "code", http.StatusInternalServerError, "name", deploymantName)
+			w.WriteHeader(http.StatusInternalServerError)
+			fmt.Fprintln(w, "k8s client error", err)
+			return
+		}
+		fmt.Fprintln(w, "restart", dpm.Name)
+
+		slog.Info("success", "uri", r.RequestURI, "client", r.RemoteAddr, "code", http.StatusOK, "name", deploymantName)
 	})
 
 	return router
