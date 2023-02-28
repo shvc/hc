@@ -117,29 +117,29 @@ func router() (mrouter *mux.Router) {
 	}
 
 	mrouter.HandleFunc("/pod", func(w http.ResponseWriter, r *http.Request) {
-		pods, err := clientset.CoreV1().Pods("default").List(r.Context(), metav1.ListOptions{})
+		itms, err := clientset.CoreV1().Pods("default").List(r.Context(), metav1.ListOptions{})
 		if err != nil {
 			slog.Warn("k8s client error", "uri", r.RequestURI, "client", r.RemoteAddr, "error", err, "code", http.StatusInternalServerError)
 			w.WriteHeader(http.StatusInternalServerError)
 			fmt.Fprintln(w, "k8s client error", err)
 			return
 		}
-		for _, pod := range pods.Items {
-			fmt.Fprintln(w, "pod:", pod.Name)
+		for _, itm := range itms.Items {
+			fmt.Fprintln(w, "pod:", itm.Status.PodIP, itm.Name)
 		}
 		slog.Info("success", "uri", r.RequestURI, "client", r.RemoteAddr, "code", http.StatusOK)
 	})
 
 	mrouter.HandleFunc("/deployment", func(w http.ResponseWriter, r *http.Request) {
-		dps, err := clientset.AppsV1().Deployments("default").List(r.Context(), metav1.ListOptions{})
+		itms, err := clientset.AppsV1().Deployments("default").List(r.Context(), metav1.ListOptions{})
 		if err != nil {
 			slog.Warn("k8s client error", "uri", r.RequestURI, "client", r.RemoteAddr, "error", err, "code", http.StatusInternalServerError)
 			w.WriteHeader(http.StatusInternalServerError)
 			fmt.Fprintln(w, "k8s client error", err)
 			return
 		}
-		for _, dp := range dps.Items {
-			fmt.Fprintln(w, "deployment:", dp.Name)
+		for _, itm := range itms.Items {
+			fmt.Fprintln(w, "deployment:", itm.Name)
 		}
 		slog.Info("success", "uri", r.RequestURI, "client", r.RemoteAddr, "code", http.StatusOK)
 	})
@@ -164,15 +164,15 @@ func router() (mrouter *mux.Router) {
 	})
 
 	mrouter.HandleFunc("/service", func(w http.ResponseWriter, r *http.Request) {
-		dps, err := clientset.CoreV1().Services("default").List(r.Context(), metav1.ListOptions{})
+		itms, err := clientset.CoreV1().Services("default").List(r.Context(), metav1.ListOptions{})
 		if err != nil {
 			slog.Warn("k8s client error", "uri", r.RequestURI, "client", r.RemoteAddr, "error", err, "code", http.StatusInternalServerError)
 			w.WriteHeader(http.StatusInternalServerError)
 			fmt.Fprintln(w, "k8s client error", err)
 			return
 		}
-		for _, dp := range dps.Items {
-			fmt.Fprintln(w, "service:", dp.Name)
+		for _, itm := range itms.Items {
+			fmt.Fprintln(w, "service:", itm.Spec.ClusterIP, itm.Name)
 		}
 		slog.Info("success", "uri", r.RequestURI, "client", r.RemoteAddr, "code", http.StatusOK)
 	})

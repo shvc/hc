@@ -1,7 +1,7 @@
 APP?=$(shell basename ${CURDIR})
 BUILDDATE=$(shell date +'%Y-%m-%dT%H:%M:%SZ')
 VERSION=$(shell awk -F\" '$$1~/appVersion:/{print $$2}' charts/hc/Chart.yaml)
-LONGVER=${VERSION}@${BUILDDATE}@$(shell git rev-parse --short HEAD)
+LONGVER=${VERSION}@${BUILDDATE}
 
 LDFLAGS=-ldflags "-s -w -X main.version=${LONGVER}"
 
@@ -48,7 +48,7 @@ clean:
 ## image: build docker image
 .PHONY: image
 image:
-	GOOS=linux GOARCH=amd64 go build -o ${APP} ${LDFLAGS} -a
+	GOOS=linux GOARCH=amd64 go build -o ${APP} ${LDFLAGS}
 	docker build -t ${APP}:${VERSION} -f Dockerfile .
 
 ## help: prints this help message
