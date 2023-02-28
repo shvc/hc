@@ -163,6 +163,20 @@ func router() (mrouter *mux.Router) {
 		slog.Info("success", "uri", r.RequestURI, "client", r.RemoteAddr, "code", http.StatusOK, "name", deploymantName)
 	})
 
+	mrouter.HandleFunc("/service", func(w http.ResponseWriter, r *http.Request) {
+		dps, err := clientset.CoreV1().Services("default").List(r.Context(), metav1.ListOptions{})
+		if err != nil {
+			slog.Warn("k8s client error", "uri", r.RequestURI, "client", r.RemoteAddr, "error", err, "code", http.StatusInternalServerError)
+			w.WriteHeader(http.StatusInternalServerError)
+			fmt.Fprintln(w, "k8s client error", err)
+			return
+		}
+		for _, dp := range dps.Items {
+			fmt.Fprintln(w, "service:", dp.Name)
+		}
+		slog.Info("success", "uri", r.RequestURI, "client", r.RemoteAddr, "code", http.StatusOK)
+	})
+
 	return
 }
 

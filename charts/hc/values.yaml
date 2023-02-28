@@ -41,4 +41,6 @@ config:
   name: "Cheng"
   date: "2023/03/05 15:05:05"
   age: 28
-  counter: 4
+  group:
+    gid: 3
+    name: "GName"
