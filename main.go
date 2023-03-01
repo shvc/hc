@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"runtime"
+	"runtime/pprof"
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -43,6 +45,10 @@ func router() (mrouter *mux.Router) {
 		if hn, err := os.Hostname(); err == nil {
 			fmt.Fprintln(w, "hostname:", hn)
 		}
+		fmt.Fprintln(w, "GOMAXPROCS  :", runtime.GOMAXPROCS(0))
+		fmt.Fprintln(w, "threadcreate:", pprof.Lookup("threadcreate").Count())
+		fmt.Fprintln(w, "goroutine   :", pprof.Lookup("goroutine").Count())
+		fmt.Fprintln(w, "GOMAXPROCS  :", runtime.GOMAXPROCS(0))
 		fmt.Fprintln(w, "config :", configFile)
 		fmt.Fprintln(w, "version:", version)
 		fmt.Fprintln(w, "message:", msg)
