@@ -46,6 +46,7 @@ func router() (mrouter *mux.Router) {
 			fmt.Fprintln(w, "hostname:", hn)
 		}
 		fmt.Fprintln(w, "GOMAXPROCS  :", runtime.GOMAXPROCS(0))
+		// ll /proc/`pidof hc`/task/
 		fmt.Fprintln(w, "threadcreate:", pprof.Lookup("threadcreate").Count())
 		fmt.Fprintln(w, "goroutine   :", pprof.Lookup("goroutine").Count())
 		fmt.Fprintln(w, "GOMAXPROCS  :", runtime.GOMAXPROCS(0))
