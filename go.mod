@@ -5,6 +5,7 @@ go 1.20
 require (
 	github.com/gobike/envflag v0.0.0-20160830095501-ae3268980a29
 	github.com/gorilla/mux v1.8.0
+	go.uber.org/automaxprocs v1.5.1
 	golang.org/x/exp v0.0.0-20230223210539-50820d90acfd
 	k8s.io/apimachinery v0.26.1
 	k8s.io/client-go v0.26.1

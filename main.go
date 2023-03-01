@@ -11,6 +11,7 @@ import (
 	"runtime"
 	"time"
 
+	_ "go.uber.org/automaxprocs"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8stypes "k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
